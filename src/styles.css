@@ -5,3 +5,5 @@
 @media(max-width:420px){.field-row{gap:8px}.form-panel,.results{padding:15px}.hero h1{font-size:29px}.tabs .tab{padding:10px 7px;font-size:9px}}
 
 .dynamic-plan svg{display:block;width:100%;height:auto;max-width:100%;margin-top:8px}
+
+.planting-summary{display:flex;flex-direction:column;gap:4px;background:#f4f7f0;border:1px solid #e2e9dc;border-radius:8px;padding:11px;margin-bottom:8px}.planting-summary strong{font-size:11px;color:#42583e}.planting-summary span{font-size:9px;color:#7e897a}.plant-spec{align-items:center}.plant-spec-main{display:flex;flex-direction:column;gap:4px;min-width:0}.plant-spec-main small{font-size:9px;color:#7d877c;line-height:1.4}.plant-count{margin-left:auto;display:flex;flex-direction:column;align-items:center;background:#edf3e9;border-radius:8px;padding:7px 9px;min-width:48px}.plant-count strong{font-size:16px;color:#4f7049}.plant-count span{font-size:8px;color:#788875}
