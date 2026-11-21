@@ -52,3 +52,27 @@ export function createPlantingSpecs(c:Conditions):PlantingSpec[]{
   return {...p,spacingCm:spacing,quantity:Math.min(80,qty),areaM2:Number(share.toFixed(2)),zone,position};
  });
 }
+
+
+export type BudgetLine = {name:string; quantity:number; unit:string; unitPrice:number; total:number; note:string};
+export function createBudgetEstimate(c:Conditions):{lines:BudgetLine[];total:number;area:number;bedArea:number}{
+ const area=Math.max(0,c.width*c.length);
+ const bedArea=area*.28;
+ const specs=createPlantingSpecs(c);
+ const tier=c.budget==='Económico'?.85:c.budget==='Premium'?1.35:1;
+ const round=(n:number)=>Math.round(n/1000)*1000;
+ const add=(name:string,quantity:number,unit:string,basePrice:number,note:string):BudgetLine=>({
+  name,quantity:Number(quantity.toFixed(1)),unit,unitPrice:round(basePrice*tier),
+  total:round(quantity*basePrice*tier),note
+ });
+ const lines:BudgetLine[]=[
+  add('Plantas ornamentales',specs.reduce((s,p)=>s+p.quantity,0),'unidades',12000,'Promedio orientativo por ejemplar; varía mucho según especie y tamaño'),
+  add('Tierra mejorada y compost',bedArea*.12,'m³',180000,'Capa de mejora estimada de 12 cm en canteros'),
+  add('Mulch / cobertura',bedArea,'m²',28000,'Cobertura superficial para canteros'),
+  add('Césped',area*.35,'m²',22000,'Se considera césped en el 35% del terreno'),
+  add('Piedra o material de camino',area*.12,'m²',65000,'Camino y sector de estar estimados en 12% del área'),
+  add('Bordura / separador',Math.sqrt(area)*3,'metros',18000,'Longitud preliminar; confirmar con el plano definitivo'),
+  add('Mano de obra',area,'m²',35000,'Preparación, plantación y terminaciones; no incluye obras especiales')
+ ];
+ return {lines,total:lines.reduce((s,l)=>s+l.total,0),area,bedArea};
+}
