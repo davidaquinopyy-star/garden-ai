@@ -25,9 +25,9 @@ export default function App(){
     const w=Math.max(1,Number(width)||8),l=Math.max(1,Number(length)||12);
     const plants=design?.plants||recommendPlants({sun,soil,drainage:drain,style,maintenance:care,goal,budget,width:w,length:l,notes:note});
     const svgW=440,svgH=360,margin=42,plotW=svgW-2*margin,plotH=svgH-80;
-    const aspect=w/l;
-    const drawW=aspect>=1?plotW:plotH*aspect;
-    const drawH=aspect>=1?plotH:plotW/aspect;
+    const scale=Math.min(plotW/w,plotH/l);
+    const drawW=w*scale;
+    const drawH=l*scale;
     const x0=margin+(plotW-drawW)/2,y0=48+(plotH-drawH)/2;
     const plantGroups=plants.slice(0,6).map((p,i)=>{
       const edge=i%4, t=(Math.floor(i/4)+1)/3;
