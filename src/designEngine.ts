@@ -36,3 +36,19 @@ export function createDesignBrief(c:Conditions){
  if(!plants.length)warnings.push('Con los filtros actuales no se encontró una lista; ajustá exposición o mantenimiento.');
  return {area:c.width*c.length,plants,zones,warnings,notes:'Idea preliminar: ajustar ubicación y cantidades mediante relevamiento en sitio. Esta propuesta no sustituye un plano de obra.'};
 }
+
+export type PlantingSpec = Plant & {spacingCm:number; quantity:number; areaM2:number; zone:string; position:string};
+export function createPlantingSpecs(c:Conditions):PlantingSpec[]{
+ const selected=recommendPlants(c);
+ const area=Math.max(0,c.width*c.length);
+ const bedArea=area*.28; // planting zones estimated at 28% of site
+ return selected.map((p,i)=>{
+  const spacing=p.role.toLowerCase().includes('arbusto')||p.role.toLowerCase().includes('privacidad')||p.role.toLowerCase().includes('foco')?90:
+   p.role.toLowerCase().includes('borde')||p.role.toLowerCase().includes('cobertura')?35:55;
+  const share=bedArea/Math.max(1,selected.length);
+  const qty=Math.max(1,Math.round(share/((spacing/100)*(spacing/100)*.85)));
+  const zone=i<2?'Fondo / estructura':i<4?'Capa intermedia':'Bordes y transición';
+  const position=i%2===0?'Lateral izquierdo':'Lateral derecho';
+  return {...p,spacingCm:spacing,quantity:Math.min(80,qty),areaM2:Number(share.toFixed(2)),zone,position};
+ });
+}
