@@ -24,15 +24,27 @@ export default function App(){
   const planMarkup=useMemo(()=>{
     const w=Math.max(1,Number(width)||8),l=Math.max(1,Number(length)||12);
     const plants=design?.plants||recommendPlants({sun,soil,drainage:drain,style,maintenance:care,goal,budget,width:w,length:l,notes:note});
-    const names=plants.slice(0,6);
-    const plantCircles=names.map((p,i)=>{
-      const positions=[[0.20,0.18],[0.50,0.15],[0.80,0.20],[0.18,0.47],[0.82,0.48],[0.22,0.78]];
-      const [px,py]=positions[i%positions.length],cx=40+px*360,cy=35+py*285;
-      const r=p.role.toLowerCase().includes('arbusto')||p.role.toLowerCase().includes('foco')?19:14;
-      return `<g transform="translate(${cx} ${cy})"><circle r="${r}" fill="#63865c" stroke="#35583b" stroke-width="2"/><circle r="${r*.55}" fill="#8eaa7e" opacity=".65"/><text y="${r+12}" font-size="9" text-anchor="middle" fill="#314a32">${p.name.replace(/&/g,'&amp;')}</text></g>`;
+    const svgW=440,svgH=360,margin=42,plotW=svgW-2*margin,plotH=svgH-80;
+    const aspect=w/l;
+    const drawW=aspect>=1?plotW:plotH*aspect;
+    const drawH=aspect>=1?plotH:plotW/aspect;
+    const x0=margin+(plotW-drawW)/2,y0=48+(plotH-drawH)/2;
+    const plantGroups=plants.slice(0,6).map((p,i)=>{
+      const edge=i%4, t=(Math.floor(i/4)+1)/3;
+      let x=x0+drawW*t,y=y0+drawH*t;
+      if(edge===0){x=x0+drawW*t;y=y0+drawH*.14;}
+      if(edge===1){x=x0+drawW*.86;y=y0+drawH*t;}
+      if(edge===2){x=x0+drawW*t;y=y0+drawH*.86;}
+      if(edge===3){x=x0+drawW*.14;y=y0+drawH*t;}
+      const big=/arbusto|privacidad|foco|tropical/i.test(p.role),r=big?Math.max(13,Math.min(19,drawW*.065)):Math.max(10,Math.min(14,drawW*.045));
+      const color=big?'#587c52':'#78966d';
+      return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><circle r="${r+3}" fill="#b7cba8" opacity=".38"/><circle r="${r}" fill="${color}" stroke="#3e6144" stroke-width="1.5"/><circle r="${r*.48}" fill="#a5bf95" opacity=".6"/><text y="${r+10}" font-size="8" text-anchor="middle" fill="#304831">${p.name.replace(/&/g,'&amp;')}</text></g>`;
     }).join('');
-    const pathWidth=Math.max(22,Math.min(38,360/(Math.max(w,l))));
-    const view=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 360" width="880" height="720"><defs><pattern id="grass" width="12" height="12" patternUnits="userSpace"><circle cx="3" cy="3" r="1" fill="#c1d3b2"/><circle cx="9" cy="8" r=".7" fill="#c1d3b2"/></pattern></defs><rect width="440" height="360" fill="#f7f4e9"/><text x="220" y="16" font-size="12" text-anchor="middle" font-weight="700" fill="#263c2b">PLANO CONCEPTUAL · ${w} × ${l} m (${(w*l).toFixed(1)} m²)</text><rect x="20" y="25" width="400" height="305" fill="#d7e4cd" stroke="#4c6348" stroke-width="3"/><rect x="24" y="29" width="392" height="297" fill="url(#grass)"/><rect x="30" y="35" width="112" height="72" rx="3" fill="#c8bcae" stroke="#8e8376"/><text x="86" y="76" font-size="11" text-anchor="middle" fill="#554c43">Casa / terraza</text><path d="M150 35 H410 V325 H160 V272 H215 V142 H150 Z" fill="#b9d3a7" stroke="#8fa77f"/><path d="M155 315 H400 V275 H220 V150 H155 Z" fill="#e1d6c3" stroke="#b9ad99" stroke-width="2"/>${plantCircles}<text x="220" y="348" text-anchor="middle" font-size="10" fill="#52654b">Distribución orientativa · ajustar en sitio, no es plano de obra</text></svg>`;
+    const pathD=`M ${x0+drawW*.18} ${y0+drawH*.92} C ${x0+drawW*.18} ${y0+drawH*.65}, ${x0+drawW*.43} ${y0+drawH*.72}, ${x0+drawW*.42} ${y0+drawH*.45} S ${x0+drawW*.75} ${y0+drawH*.35}, ${x0+drawW*.78} ${y0+drawH*.12}`;
+    const bed=Math.max(12,Math.min(24,Math.min(drawW,drawH)*.09));
+    const pathWidth=Math.max(13,Math.min(22,Math.min(drawW,drawH)*.08));
+    const plantBedSvg=`<path d="M ${x0+bed} ${y0+bed} H ${x0+drawW-bed} V ${y0+drawH-bed} H ${x0+bed} Z" fill="#b8d3a7" opacity=".45"/>`;
+    const view=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 360" width="880" height="720"><defs><pattern id="grass" width="12" height="12" patternUnits="userSpace"><circle cx="3" cy="3" r="1" fill="#c1d3b2"/><circle cx="9" cy="8" r=".7" fill="#c1d3b2"/></pattern></defs><rect width="440" height="360" fill="#f7f4e9"/><text x="220" y="17" font-size="12" text-anchor="middle" font-weight="700" fill="#263c2b">PLANO CONCEPTUAL · ${w} × ${l} m · ${(w*l).toFixed(1)} m²</text><rect x="${x0}" y="${y0}" width="${drawW}" height="${drawH}" rx="3" fill="#d7e4cd" stroke="#4c6348" stroke-width="2.5"/><rect x="${x0+2}" y="${y0+2}" width="${drawW-4}" height="${drawH-4}" fill="url(#grass)"/>${plantBedSvg}<rect x="${x0+drawW*.04}" y="${y0+drawH*.04}" width="${drawW*.24}" height="${drawH*.18}" rx="3" fill="#c8bcae" stroke="#8e8376"/><text x="${x0+drawW*.16}" y="${y0+drawH*.14}" font-size="9" text-anchor="middle" fill="#554c43">Casa / terraza</text><path d="${pathD}" stroke="#b7aa95" stroke-width="${pathWidth+3}" fill="none" stroke-linecap="round"/><path d="${pathD}" stroke="#e5dccb" stroke-width="${pathWidth}" fill="none" stroke-linecap="round"/><ellipse cx="${x0+drawW*.77}" cy="${y0+drawH*.2}" rx="${Math.max(16,drawW*.1)}" ry="${Math.max(12,drawH*.07)}" fill="#d9c9a9" stroke="#9e8f73"/><text x="${x0+drawW*.77}" y="${y0+drawH*.2+3}" font-size="8" text-anchor="middle" fill="#675b48">Estar</text>${plantGroups}<text x="220" y="350" text-anchor="middle" font-size="9" fill="#52654b">Borduras · camino · zona de estar · plantación | esquema conceptual</text></svg>`;
     return view;
   },[width,length,design,sun,soil,drain,style,care,goal,budget,note]);
   function downloadSVG(){
