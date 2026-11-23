@@ -38,36 +38,66 @@ export function createDesignBrief(c:Conditions){
 }
 
 export type PlantingSpec = Plant & {spacingCm:number; quantity:number; areaM2:number; zone:string; position:string; x:number; y:number};
-export type GardenZone={id:string;name:string;type:'border'|'focal'|'path'|'lawn'|'bed';x:number;y:number;width:number;length:number;areaM2:number};
+export type GardenZone={id:string;name:string;type:'border'|'focal'|'path'|'lawn'|'bed'|'patio'|'gravel'|'water'|'tree'|'vegetable';x:number;y:number;width:number;length:number;areaM2:number};
 export type GardenLayout={width:number;length:number;areaM2:number;zones:GardenZone[];plantings:PlantingSpec[]};
 
 export function createGardenLayout(c:Conditions):GardenLayout{
  const w=Math.max(0,c.width),l=Math.max(0,c.length),area=w*l;
- const border=Math.min(.9,Math.max(.35,Math.min(w,l)*.09));
  const zones:GardenZone[]=[];
  const add=(id:string,name:string,type:GardenZone['type'],x:number,y:number,width:number,length:number)=>{
-  const ww=Math.max(0,Math.min(w-x,width)),ll=Math.max(0,Math.min(l-y,length));
-  zones.push({id,name,type,x,y,width:ww,length:ll,areaM2:ww*ll});
+  const xx=Math.max(0,Math.min(w,x)),yy=Math.max(0,Math.min(l,y));
+  const ww=Math.max(0,Math.min(w-xx,width)),ll=Math.max(0,Math.min(l-yy,length));
+  if(ww>0&&ll>0)zones.push({id,name,type,x:xx,y:yy,width:ww,length:ll,areaM2:ww*ll});
  };
- // perimeter planting bands, adapted to plot proportions
- if(w>border*2&&l>border*2){
-  add('b1','Cantero posterior','border',0,0,w,border);
-  add('b2','Cantero lateral izquierdo','border',0,border,border,l-border*2);
-  add('b3','Cantero lateral derecho','border',w-border,border,border,l-border*2);
-  add('b4','Cantero frontal','border',0,l-border,w,border);
- }
- const pathWidth=Math.min(1.15,Math.max(.7,Math.min(w,l)*.09));
- const pathLen=Math.max(0,l-border*2);
- add('path','Recorrido principal','path',Math.max(0,w*.42-pathWidth/2),border,pathWidth,pathLen);
- const lawnX=border,lawnY=border,lawnW=Math.max(0,w-border*2),lawnL=Math.max(0,l-border*2);
- add('lawn','Área libre / césped','lawn',lawnX,lawnY,lawnW,lawnL);
- // style-based accents (small feature bed / gathering space)
- if(c.style==='Japonés zen'||c.style==='Minimalista'){
-  const feature=Math.min(1.6,Math.max(.8,Math.min(w,l)*.16));
-  add('feature','Punto focal / jardín de acento','focal',Math.max(0,w-feature-border),Math.max(0,l*.55-feature/2),feature,feature);
+ const minDim=Math.min(w,l),band=Math.min(.85,Math.max(.3,minDim*.075));
+ const pathW=Math.min(1.05,Math.max(.65,minDim*.075));
+ const style=c.style,goal=c.goal;
+ const planting=()=>{add('bed-back','Plantación de fondo','bed',0,0,w,band);};
+ // Choose a composition pattern, not a fixed border-only template.
+ if(style==='Minimalista'){
+  add('lawn','Plano verde principal','lawn',band,band,Math.max(0,w-band*2),Math.max(0,l-band*2));
+  add('bed-back','Banda vegetal estructural','bed',0,0,w,band);
+  add('bed-side','Plantación lateral','bed',0,band,band,Math.max(0,l-band*2));
+  add('gravel','Grava decorativa','gravel',w*.62,l*.52,w*.32,l*.28);
+  add('path','Sendero recto','path',w*.42,band,pathW,Math.max(0,l-band*2));
+  add('patio','Estar compacto','patio',w*.62,l*.12,w*.32,l*.24);
+ }else if(style==='Japonés zen'){
+  add('gravel','Jardín de grava / contemplación','gravel',band,band,w-band*2,l-band*2);
+  add('bed-back','Vegetación en capas','bed',0,0,w,band);
+  add('bed-side','Plantación de sombra','bed',0,band,band,l-band*2);
+  add('path','Sendero de pasos','path',w*.15,l*.15,Math.max(.5,pathW),Math.max(.5,l*.7));
+  add('water','Elemento de agua (opcional)','water',w*.62,l*.2,Math.min(w*.22,1.4),Math.min(l*.18,1.4));
+  add('focal','Piedra protagonista','focal',w*.65,l*.58,Math.min(w*.2,1.4),Math.min(l*.2,1.4));
+ }else if(goal==='Crear privacidad'){
+  add('lawn','Área central libre','lawn',band,band,w-band*2,l-band*2);
+  add('privacy-back','Pantalla vegetal posterior','bed',0,0,w,band*1.6);
+  add('privacy-side','Pantalla vegetal lateral','bed',0,band,band*1.5,l-band*2);
+  add('path','Circulación lateral','path',w*.78,band,pathW,l-band*2);
+  add('patio','Espacio de estar','patio',w*.12,l*.65,w*.28,l*.22);
+ }else if(goal==='Jardín para niños / mascotas'){
+  add('lawn','Área libre para jugar','lawn',band,band,w-band*2,l-band*2);
+  add('bed-back','Plantación segura en perímetro','bed',0,0,w,band);
+  add('path','Camino de acceso','path',w*.42,band,pathW,l-band*2);
+  add('patio','Zona de descanso','patio',w*.12,l*.12,w*.28,l*.22);
+ }else if(goal==='Huerta'){
+  add('vegetable','Huerta / cultivo','vegetable',band,band,w-band*2,l*.42);
+  add('path','Pasillo de acceso','path',w*.45,band,pathW,l-band*2);
+  add('bed-back','Bordura aromática','bed',0,l-band,w,band);
+  add('patio','Zona de trabajo','patio',w*.62,l*.62,w*.28,l*.22);
+ }else if(goal==='Reducir calor'){
+  add('lawn','Área permeable central','lawn',band,band,w-band*2,l-band*2);
+  add('bed-back','Capa vegetal de sombra','bed',0,0,w,band*1.5);
+  add('tree','Árbol de sombra (zona sugerida)','tree',w*.62,l*.12,Math.min(w*.25,2),Math.min(l*.25,2));
+  add('path','Camino permeable','path',w*.38,band,pathW,l-band*2);
+  add('gravel','Superficie permeable','gravel',w*.62,l*.62,w*.28,l*.22);
  }else{
-  const feature=Math.min(2.1,Math.max(1,Math.min(w,l)*.2));
-  add('feature','Zona de estar / acento','focal',Math.max(0,w-feature-border),Math.max(0,l*.55-feature/2),feature,feature);
+  // Tropical/contemporary default composition with varied function areas.
+  add('lawn','Área de césped / espacio abierto','lawn',band,band,w-band*2,l-band*2);
+  add('bed-back','Plantación de fondo','bed',0,0,w,band);
+  add('bed-side','Plantación de acento lateral','bed',0,band,band,l-band*2);
+  add('path','Camino orgánico conceptual','path',w*.42,band,pathW,l-band*2);
+  add('patio','Zona de estar','patio',w*.62,l*.62,w*.28,l*.22);
+  add('focal','Punto focal vegetal','focal',w*.15,l*.58,Math.min(w*.2,1.5),Math.min(l*.2,1.5));
  }
  const plantings=createPlantingSpecs(c);
  return {width:w,length:l,areaM2:area,zones,plantings};
