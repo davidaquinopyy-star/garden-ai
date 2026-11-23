@@ -37,22 +37,59 @@ export function createDesignBrief(c:Conditions){
  return {area:c.width*c.length,plants,zones,warnings,notes:'Idea preliminar: ajustar ubicación y cantidades mediante relevamiento en sitio. Esta propuesta no sustituye un plano de obra.'};
 }
 
-export type PlantingSpec = Plant & {spacingCm:number; quantity:number; areaM2:number; zone:string; position:string};
+export type PlantingSpec = Plant & {spacingCm:number; quantity:number; areaM2:number; zone:string; position:string; x:number; y:number};
+export type GardenZone={id:string;name:string;type:'border'|'focal'|'path'|'lawn'|'bed';x:number;y:number;width:number;length:number;areaM2:number};
+export type GardenLayout={width:number;length:number;areaM2:number;zones:GardenZone[];plantings:PlantingSpec[]};
+
+export function createGardenLayout(c:Conditions):GardenLayout{
+ const w=Math.max(0,c.width),l=Math.max(0,c.length),area=w*l;
+ const border=Math.min(.9,Math.max(.35,Math.min(w,l)*.09));
+ const zones:GardenZone[]=[];
+ const add=(id:string,name:string,type:GardenZone['type'],x:number,y:number,width:number,length:number)=>{
+  const ww=Math.max(0,Math.min(w-x,width)),ll=Math.max(0,Math.min(l-y,length));
+  zones.push({id,name,type,x,y,width:ww,length:ll,areaM2:ww*ll});
+ };
+ // perimeter planting bands, adapted to plot proportions
+ if(w>border*2&&l>border*2){
+  add('b1','Cantero posterior','border',0,0,w,border);
+  add('b2','Cantero lateral izquierdo','border',0,border,border,l-border*2);
+  add('b3','Cantero lateral derecho','border',w-border,border,border,l-border*2);
+  add('b4','Cantero frontal','border',0,l-border,w,border);
+ }
+ const pathWidth=Math.min(1.15,Math.max(.7,Math.min(w,l)*.09));
+ const pathLen=Math.max(0,l-border*2);
+ add('path','Recorrido principal','path',Math.max(0,w*.42-pathWidth/2),border,pathWidth,pathLen);
+ const lawnX=border,lawnY=border,lawnW=Math.max(0,w-border*2),lawnL=Math.max(0,l-border*2);
+ add('lawn','Área libre / césped','lawn',lawnX,lawnY,lawnW,lawnL);
+ // style-based accents (small feature bed / gathering space)
+ if(c.style==='Japonés zen'||c.style==='Minimalista'){
+  const feature=Math.min(1.6,Math.max(.8,Math.min(w,l)*.16));
+  add('feature','Punto focal / jardín de acento','focal',Math.max(0,w-feature-border),Math.max(0,l*.55-feature/2),feature,feature);
+ }else{
+  const feature=Math.min(2.1,Math.max(1,Math.min(w,l)*.2));
+  add('feature','Zona de estar / acento','focal',Math.max(0,w-feature-border),Math.max(0,l*.55-feature/2),feature,feature);
+ }
+ const plantings=createPlantingSpecs(c);
+ return {width:w,length:l,areaM2:area,zones,plantings};
+}
 export function createPlantingSpecs(c:Conditions):PlantingSpec[]{
- const selected=recommendPlants(c);
- const area=Math.max(0,c.width*c.length);
- const bedArea=area*.28; // planting zones estimated at 28% of site
+ const selected=recommendPlants(c),w=Math.max(0,c.width),l=Math.max(0,c.length),area=w*l;
+ const bedArea=Math.min(area*.32,Math.max(0,area*.28));
+ const usable=Math.max(0,Math.min(w,l)-.6),border=Math.min(.9,Math.max(.35,usable*.09));
  return selected.map((p,i)=>{
-  const spacing=p.role.toLowerCase().includes('arbusto')||p.role.toLowerCase().includes('privacidad')||p.role.toLowerCase().includes('foco')?90:
-   p.role.toLowerCase().includes('borde')||p.role.toLowerCase().includes('cobertura')?35:55;
+  const role=p.role.toLowerCase();
+  const spacing=role.includes('arbusto')||role.includes('privacidad')||role.includes('foco')||role.includes('tropical')?90:
+   role.includes('borde')||role.includes('cobertura')?35:55;
   const share=bedArea/Math.max(1,selected.length);
   const qty=Math.max(1,Math.round(share/((spacing/100)*(spacing/100)*.85)));
-  const zone=i<2?'Fondo / estructura':i<4?'Capa intermedia':'Bordes y transición';
-  const position=i%2===0?'Lateral izquierdo':'Lateral derecho';
-  return {...p,spacingCm:spacing,quantity:Math.min(80,qty),areaM2:Number(share.toFixed(2)),zone,position};
+  const zone=i<2?'Canteros de perímetro':i<4?'Canteros intermedios':'Bordes y acentos';
+  const side=i%4;
+  const x=side===0?border:side===1?Math.max(border,w-border):w*(.25+i*.1);
+  const y=side===2?Math.max(border,l-border):side===3?border:l*(.35+i*.08);
+  const position=side===0?'Lateral izquierdo':side===1?'Lateral derecho':side===2?'Frente':'Fondo';
+  return {...p,spacingCm:spacing,quantity:Math.min(80,qty),areaM2:Number(share.toFixed(2)),zone,position,x:Number(Math.max(0,Math.min(w,x)).toFixed(2)),y:Number(Math.max(0,Math.min(l,y)).toFixed(2))};
  });
 }
-
 
 export type BudgetLine = {name:string; quantity:number; unit:string; unitPrice:number; total:number; note:string};
 export function createBudgetEstimate(c:Conditions):{lines:BudgetLine[];total:number;area:number;bedArea:number}{
