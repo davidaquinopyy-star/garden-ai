@@ -47,7 +47,12 @@ export function createGardenLayout(c:Conditions):GardenLayout{
  const add=(id:string,name:string,type:GardenZone['type'],x:number,y:number,width:number,length:number)=>{
   const xx=Math.max(0,Math.min(w,x)),yy=Math.max(0,Math.min(l,y));
   const ww=Math.max(0,Math.min(w-xx,width)),ll=Math.max(0,Math.min(l-yy,length));
-  if(ww>0&&ll>0)zones.push({id,name,type,x:xx,y:yy,width:ww,length:ll,areaM2:ww*ll});
+  if(ww>0&&ll>0){
+   const shape=type==='path'?'M 0 0 C 22 12 35 55 50 48 S 75 22 100 100':
+    type==='lawn'?'M 8 0 L 92 4 Q 100 12 98 22 L 96 78 Q 90 100 78 96 L 18 100 Q 0 90 2 72 L 0 18 Q 2 5 8 0 Z':
+    type==='bed'||type==='gravel'||type==='vegetable'?'M 0 8 Q 18 0 32 5 T 65 2 Q 90 0 100 12 L 96 88 Q 80 100 62 94 T 28 98 Q 8 100 2 84 Z':undefined;
+   zones.push({id,name,type,x:xx,y:yy,width:ww,length:ll,areaM2:ww*ll,shape});
+  }
  };
  const minDim=Math.min(w,l),band=Math.min(.85,Math.max(.3,minDim*.075));
  const pathW=Math.min(1.05,Math.max(.65,minDim*.075));
