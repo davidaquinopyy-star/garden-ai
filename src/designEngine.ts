@@ -38,7 +38,7 @@ export function createDesignBrief(c:Conditions){
 }
 
 export type PlantingSpec = Plant & {spacingCm:number; quantity:number; areaM2:number; zone:string; position:string; x:number; y:number};
-export type GardenZone={id:string;name:string;type:'border'|'focal'|'path'|'lawn'|'bed'|'patio'|'gravel'|'water'|'tree'|'vegetable';x:number;y:number;width:number;length:number;areaM2:number};
+export type GardenZone={id:string;name:string;type:'border'|'focal'|'path'|'lawn'|'bed'|'patio'|'gravel'|'water'|'tree'|'vegetable';x:number;y:number;width:number;length:number;areaM2:number;shape?:string};
 export type GardenLayout={width:number;length:number;areaM2:number;zones:GardenZone[];plantings:PlantingSpec[]};
 
 export function createGardenLayout(c:Conditions):GardenLayout{
