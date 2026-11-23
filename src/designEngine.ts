@@ -111,21 +111,27 @@ export function createPlantingSpecs(c:Conditions):PlantingSpec[]{
  const selected=recommendPlants(c),w=Math.max(0,c.width),l=Math.max(0,c.length),area=w*l;
  const bedArea=Math.min(area*.32,Math.max(0,area*.28));
  const usable=Math.max(0,Math.min(w,l)-.6),border=Math.min(.9,Math.max(.35,usable*.09));
+ const isKitchen=c.goal==='Huerta',isPrivacy=c.goal==='Crear privacidad',isFamily=c.goal==='Jardín para niños / mascotas',isZen=c.style==='Japonés zen';
+ const clamp=(v:number,max:number)=>Math.max(0,Math.min(max,v));
+ // Plant locations follow the perimeter planting bands, not arbitrary points over the lawn.
+ const placements=selected.map((p,i)=>{
+  const t=(i+.5)/Math.max(1,selected.length);
+  if(isKitchen)return {x:clamp(border+t*(w-2*border),w),y:clamp(border+l*.34,w?l:0),position:'Huerta · fila de cultivo',zone:'Huerta'};
+  if(isPrivacy)return i%3===0?{x:clamp(t*w,w),y:clamp(border*.65,l),position:'Fondo · pantalla vegetal',zone:'Pantalla posterior'}:i%3===1?{x:clamp(border*.65,w),y:clamp(border+l*t,l),position:'Lateral izquierdo',zone:'Pantalla lateral'}:{x:clamp(w-border*.65,w),y:clamp(border+l*t,l),position:'Lateral derecho',zone:'Pantalla lateral'};
+  if(isFamily)return {x:clamp(border+t*(w-2*border),w),y:clamp(l-border*.6,l),position:'Perímetro · fuera del área de juego',zone:'Bordura segura'};
+  if(isZen)return i%2===0?{x:clamp(border+t*(w-2*border),w),y:clamp(border*.65,l),position:'Borde posterior',zone:'Vegetación en capas'}:{x:clamp(border*.65,w),y:clamp(border+l*t,l),position:'Borde lateral',zone:'Plantación de sombra'};
+  return i%3===0?{x:clamp(border+t*(w-2*border),w),y:clamp(border*.65,l),position:'Banda posterior',zone:'Cantero posterior'}:i%3===1?{x:clamp(border*.65,w),y:clamp(border+l*t,l),position:'Lateral izquierdo',zone:'Cantero lateral'}:{x:clamp(w-border*.65,w),y:clamp(border+l*t,l),position:'Lateral derecho',zone:'Cantero lateral'};
+ });
  return selected.map((p,i)=>{
   const role=p.role.toLowerCase();
   const spacing=role.includes('arbusto')||role.includes('privacidad')||role.includes('foco')||role.includes('tropical')?90:
    role.includes('borde')||role.includes('cobertura')?35:55;
   const share=bedArea/Math.max(1,selected.length);
   const qty=Math.max(1,Math.round(share/((spacing/100)*(spacing/100)*.85)));
-  const zone=i<2?'Canteros de perímetro':i<4?'Canteros intermedios':'Bordes y acentos';
-  const side=i%4;
-  const x=side===0?border:side===1?Math.max(border,w-border):w*(.25+i*.1);
-  const y=side===2?Math.max(border,l-border):side===3?border:l*(.35+i*.08);
-  const position=side===0?'Lateral izquierdo':side===1?'Lateral derecho':side===2?'Frente':'Fondo';
-  return {...p,spacingCm:spacing,quantity:Math.min(80,qty),areaM2:Number(share.toFixed(2)),zone,position,x:Number(Math.max(0,Math.min(w,x)).toFixed(2)),y:Number(Math.max(0,Math.min(l,y)).toFixed(2))};
+  const point=placements[i];
+  return {...p,spacingCm:spacing,quantity:Math.min(80,qty),areaM2:Number(share.toFixed(2)),zone:point.zone,position:point.position,x:Number(point.x.toFixed(2)),y:Number(point.y.toFixed(2))};
  });
 }
-
 export type BudgetLine = {name:string; quantity:number; unit:string; unitPrice:number; total:number; note:string};
 export function createBudgetEstimate(c:Conditions):{lines:BudgetLine[];total:number;area:number;bedArea:number}{
  const area=Math.max(0,c.width*c.length);
