@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { createDesignBrief, recommendPlants, createPlantingSpecs, createBudgetEstimate } from './designEngine';
+import { createDesignBrief, recommendPlants, createPlantingSpecs, createBudgetEstimate, createGardenLayout } from './designEngine';
 import { Leaf, Sun, CloudSun, Droplets, Ruler, ImagePlus, Sparkles, Download, Sprout, LayoutGrid, PencilRuler, ChevronRight, Check, CircleHelp, TreePine, FileText } from 'lucide-react';
 
 type Tab = 'render'|'plan'|'sketch'|'plants'|'budget';
@@ -25,34 +25,7 @@ export default function App(){
   const previews=useMemo(()=>photos.map(f=>URL.createObjectURL(f)),[photos]);
   const area=Number(width)>0&&Number(length)>0?Number(width)*Number(length):0;
   function generate(){const conditions={sun,soil,drainage:drain,style,maintenance:care,goal,budget,width:Number(width)||0,length:Number(length)||0,notes:note};setDesign(createDesignBrief(conditions));setGenerated(true);setTab('plan');}
-  const planMarkup=useMemo(()=>{
-    const w=Math.max(1,Number(width)||8),l=Math.max(1,Number(length)||12);
-    const plants=design?.plants||recommendPlants({sun,soil,drainage:drain,style,maintenance:care,goal,budget,width:w,length:l,notes:note});
-    const specs=createPlantingSpecs({sun,soil,drainage:drain,style,maintenance:care,goal,budget,width:w,length:l,notes:note});
-    const svgW=440,svgH=360,margin=42,plotW=svgW-2*margin,plotH=svgH-80;
-    const scale=Math.min(plotW/w,plotH/l);
-    const drawW=w*scale;
-    const drawH=l*scale;
-    const x0=margin+(plotW-drawW)/2,y0=48+(plotH-drawH)/2;
-    const plantGroups=plants.slice(0,6).map((p,i)=>{
-      const edge=i%4, t=(Math.floor(i/4)+1)/3;
-      let x=x0+drawW*t,y=y0+drawH*t;
-      if(edge===0){x=x0+drawW*t;y=y0+drawH*.14;}
-      if(edge===1){x=x0+drawW*.86;y=y0+drawH*t;}
-      if(edge===2){x=x0+drawW*t;y=y0+drawH*.86;}
-      if(edge===3){x=x0+drawW*.14;y=y0+drawH*t;}
-      const big=/arbusto|privacidad|foco|tropical/i.test(p.role),r=big?Math.max(13,Math.min(19,drawW*.065)):Math.max(10,Math.min(14,drawW*.045));
-      const color=big?'#587c52':'#78966d';
-      const spec=specs[i];const cluster=[[-7,-4],[8,4],[0,10],[5,-9],[-11,9]].slice(0,Math.min(5,spec.quantity));return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})">${cluster.map(([dx,dy])=>`<g transform="translate(${dx} ${dy})"><circle r="${r+2}" fill="#b7cba8" opacity=".38"/><circle r="${r*.72}" fill="${color}" stroke="#3e6144" stroke-width="1.3"/><circle r="${r*.35}" fill="#a5bf95" opacity=".6"/></g>`).join('')}<text y="${r+17}" font-size="8" text-anchor="middle" fill="#304831">${p.name.replace(/&/g,'&amp;')} · ${spec.quantity}</text></g>`;
-    }).join('');
-    const pathD=`M ${x0+drawW*.18} ${y0+drawH*.92} C ${x0+drawW*.18} ${y0+drawH*.65}, ${x0+drawW*.43} ${y0+drawH*.72}, ${x0+drawW*.42} ${y0+drawH*.45} S ${x0+drawW*.75} ${y0+drawH*.35}, ${x0+drawW*.78} ${y0+drawH*.12}`;
-    const bed=Math.max(12,Math.min(24,Math.min(drawW,drawH)*.09));
-    const pathWidth=Math.max(13,Math.min(22,Math.min(drawW,drawH)*.08));
-    const plantBedSvg=`<path d="M ${x0+bed} ${y0+bed} H ${x0+drawW-bed} V ${y0+drawH-bed} H ${x0+bed} Z" fill="#b8d3a7" opacity=".45"/>`;
-    const view=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 360" width="880" height="720"><defs><pattern id="grass" width="12" height="12" patternUnits="userSpace"><circle cx="3" cy="3" r="1" fill="#c1d3b2"/><circle cx="9" cy="8" r=".7" fill="#c1d3b2"/></pattern></defs><rect width="440" height="360" fill="#f7f4e9"/><text x="220" y="17" font-size="12" text-anchor="middle" font-weight="700" fill="#263c2b">PLANO CONCEPTUAL · ${w} × ${l} m · ${(w*l).toFixed(1)} m²</text><rect x="${x0}" y="${y0}" width="${drawW}" height="${drawH}" rx="3" fill="#d7e4cd" stroke="#4c6348" stroke-width="2.5"/><rect x="${x0+2}" y="${y0+2}" width="${drawW-4}" height="${drawH-4}" fill="url(#grass)"/>${plantBedSvg}<rect x="${x0+drawW*.04}" y="${y0+drawH*.04}" width="${drawW*.24}" height="${drawH*.18}" rx="3" fill="#c8bcae" stroke="#8e8376"/><text x="${x0+drawW*.16}" y="${y0+drawH*.14}" font-size="9" text-anchor="middle" fill="#554c43">Casa / terraza</text><path d="${pathD}" stroke="#b7aa95" stroke-width="${pathWidth+3}" fill="none" stroke-linecap="round"/><path d="${pathD}" stroke="#e5dccb" stroke-width="${pathWidth}" fill="none" stroke-linecap="round"/><ellipse cx="${x0+drawW*.77}" cy="${y0+drawH*.2}" rx="${Math.max(16,drawW*.1)}" ry="${Math.max(12,drawH*.07)}" fill="#d9c9a9" stroke="#9e8f73"/><text x="${x0+drawW*.77}" y="${y0+drawH*.2+3}" font-size="8" text-anchor="middle" fill="#675b48">Estar</text>${plantGroups}<text x="220" y="350" text-anchor="middle" font-size="9" fill="#52654b">Borduras · camino · zona de estar · plantación | esquema conceptual</text></svg>`;
-    return view;
-  },[width,length,design,sun,soil,drain,style,care,goal,budget,note]);
-  function escapeHTML(value:string){return String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+  const planMarkup=useMemo(()=>{\n    const w=Math.max(1,Number(width)||8),l=Math.max(1,Number(length)||12);\n    const conditions={sun,soil,drainage:drain,style,maintenance:care,goal,budget,width:w,length:l,notes:note};\n    const layout=createGardenLayout(conditions);\n    const svgW=440,svgH=360,margin=38,plotW=svgW-2*margin,plotH=svgH-76;\n    const scale=Math.min(plotW/w,plotH/l),drawW=w*scale,drawH=l*scale;\n    const x0=margin+(plotW-drawW)/2,y0=48+(plotH-drawH)/2;\n    const sx=(x:number)=>x0+x*scale,sy=(y:number)=>y0+y*scale;\n    const colors:Record<string,string>={bed:'#a8c39b',border:'#a8c39b',focal:'#c4b28b',path:'#e3d8c5',lawn:'#cbdcbe',patio:'#c6b8a5',gravel:'#d7d1c2',water:'#8ebec4',tree:'#8eb08a',vegetable:'#94bd82'};\n    const zones=layout.zones.map(z=>{const color=colors[z.type]||'#c6d5bc';if(z.type==='lawn')return '';if(z.type==='tree')return '<circle cx="'+sx(z.x+z.width/2)+'" cy="'+sy(z.y+z.length/2)+'" r="'+Math.max(7,Math.min(z.width,z.length)*scale*.48)+'" fill="#72966a" stroke="#3e6040" opacity=".8"/>';if(z.type==='water')return '<rect x="'+sx(z.x)+'" y="'+sy(z.y)+'" width="'+z.width*scale+'" height="'+z.length*scale+'" rx="5" fill="'+color+'" stroke="#538c9a"/>';return '<rect x="'+sx(z.x)+'" y="'+sy(z.y)+'" width="'+z.width*scale+'" height="'+z.length*scale+'" rx="4" fill="'+color+'" opacity=".75" stroke="#68825f"/><text x="'+sx(z.x+z.width/2)+'" y="'+sy(z.y+z.length/2)+'" font-size="8" text-anchor="middle" fill="#394b37">'+z.name+'</text>';}).join('');\n    const plants=layout.plantings.map((p,i)=>{const px=sx(p.x),py=sy(p.y),r=Math.max(4,Math.min(12,scale*(p.spacingCm/100)*.22)),col=i%2?'#6e9466':'#557d51';return '<g><circle cx="'+px+'" cy="'+py+'" r="'+r+'" fill="'+col+'" stroke="#3f6540"/><text x="'+px+'" y="'+(py+r+9)+'" font-size="7" text-anchor="middle" fill="#29432c">'+p.name+' · '+p.quantity+'</text></g>';}).join('');\n    const heading=style==='Minimalista'?'MINIMALISTA':style==='Japonés zen'?'JARDÍN ZEN':goal==='Crear privacidad'?'PRIVACIDAD':goal==='Jardín para niños / mascotas'?'JARDÍN FAMILIAR':goal==='Huerta'?'HUERTA':goal==='Reducir calor'?'JARDÍN FRESCO':'TROPICAL CONTEMPORÁNEO';\n    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 360" width="880" height="720"><rect width="440" height="360" fill="#f7f4e9"/><text x="220" y="17" font-size="11" text-anchor="middle" font-weight="700" fill="#263c2b">'+heading+' · '+w+' × '+l+' m</text><rect x="'+x0+'" y="'+y0+'" width="'+drawW+'" height="'+drawH+'" rx="3"" fill="#d4e2cc" stroke="#4c6348" stroke-width="2.2"/> '+zones+plants+'<text x="220" y="350" text-anchor="middle" font-size="8" fill="#52654b">Zonas y elementos conceptuales · verificar medidas en sitio</text></svg>';\n  },[width,length,design,sun,soil,drain,style,care,goal,budget,note]);\n  function escapeHTML(value:string){return String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
   function generateProposal(){
     const conditions={sun,soil,drainage:drain,style,maintenance:care,goal,budget,width:Number(width)||0,length:Number(length)||0,notes:note};
     const specs=createPlantingSpecs(conditions);
