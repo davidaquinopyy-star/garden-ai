@@ -94,7 +94,7 @@ Respondé en español con un análisis práctico y estructurado que incluya:
 No afirmes que generaste una imagen. Sé específico con esta fotografía.`;
 
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(apiKey),
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + encodeURIComponent(apiKey),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,7 +115,7 @@ No afirmes que generaste una imagen. Sé específico con esta fotografía.`;
       ?.map((part: { text?: string }) => part.text || "")
       .join("\n").trim();
     if (!analysis) return json({ error: "Gemini devolvió un análisis vacío. Probá con otra fotografía." }, 502);
-    return json({ analysis, model: "gemini-2.5-flash" });
+    return json({ analysis, model: "gemini-3.8-flash" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error inesperado al procesar la fotografía.";
     return json({ error: message }, 500);
