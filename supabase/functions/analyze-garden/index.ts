@@ -64,6 +64,7 @@ Devolvé una única imagen final fotorrealista que mantenga reconocible el mismo
       );
       const result = await response.json();
       if (!response.ok) {
+        console.error("Gemini image API error", response.status, JSON.stringify(result?.error ?? result));
         const message = result?.error?.message || "Gemini no pudo generar la imagen.";
         return json({ error: message }, response.status);
       }
@@ -105,6 +106,7 @@ No afirmes que generaste una imagen. Sé específico con esta fotografía.`;
     );
     const result = await response.json();
     if (!response.ok) {
+      console.error("Gemini analysis API error", response.status, JSON.stringify(result?.error ?? result));
       const message = result?.error?.message || "Gemini no pudo analizar la fotografía.";
       return json({ error: message }, response.status);
     }
