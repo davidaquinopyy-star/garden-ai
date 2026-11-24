@@ -33,3 +33,15 @@ La función serverless `functions/api/generate-design.ts` procesa la imagen de r
 
 
 El endpoint limita fotos a 10 MB y solo acepta imágenes. La generación requiere saldo y acceso al API de OpenAI. Los renders son conceptuales: no garantizan medidas, especies exactas ni condiciones constructivas. Video no está conectado todavía.
+
+## Supabase (backend base)
+
+1. Create a Supabase project.
+2. Open **SQL Editor** and run `supabase/migrations/202611230001_initial_garden_ai.sql`.
+3. In Cloudflare Pages, add the following public frontend variables:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+4. Use the same variables in a local `.env` file for development (see `.env.example`).
+5. Never add the Supabase **service_role** key to frontend variables or Git.
+
+This foundation creates `projects`, `designs`, and `design_analyses` tables with Row Level Security (RLS), plus private `garden-photos` and `garden-renders` Storage buckets. The frontend client is initialized only when the public variables are present. Authentication and saving/loading projects are the next integration step; this commit does not yet persist the current UI designs.
