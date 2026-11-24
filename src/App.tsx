@@ -59,7 +59,6 @@ export default function App(){
     try{analysis=await requestGardenAnalysis();setAiAnalysis(analysis);}
     catch(e){setAiError(e instanceof Error?e.message:'No se pudo analizar la fotografía.');setSaveMessage('');setSaveBusy(false);setAiLoading(false);return;}
     finally{setAiLoading(false);}
-    const conditions={sun,soil,drainage:drain,style,maintenance:care,goal,budget,width:Number(width)||0,length:Number(length)||0,notes:note};
     const brief=createDesignBrief(conditions);setDesign(brief);setGenerated(true);setTab('render');
     setSaveMessage('Análisis real de Gemini completado. Preparando los elementos conceptuales…');
     try{
