@@ -43,29 +43,31 @@ export default function App(){
   async function generate(){
     setAiError('');setAiAnalysis(null);setAiImage(null);
     const conditions={sun,soil,drainage:drain,style,maintenance:care,goal,budget,width:Number(width)||0,length:Number(length)||0,notes:note};
-    if(!photos.some(file=>file.type.startsWith('image/'))){setAiError('Para probar Gemini, subí una fotografía del terreno.');return;}
-    setSaveBusy(true);setAiLoading(true);setSaveMessage('Gemini está analizando tu fotografía…');
-    let analysis='';
-    try{analysis=await requestGardenAnalysis();setAiAnalysis(analysis);}
-    catch(e){let message=e instanceof Error?e.message:'No se pudo analizar la fotografía.';try{const response=(e as any)?.context;const payload=response?.clone?await response.clone().json():null;if(payload?.error)message=String(payload.error);}catch{}setAiError(message);setSaveMessage('');setSaveBusy(false);setAiLoading(false);return;}
-    finally{setAiLoading(false);}
+    if(!photos.some(file=>file.type.startsWith('image/'))){setAiError('Para crear tu diseño con Nano Banana, subí una fotografía del terreno.');return;}
+    setSaveBusy(true);setSaveMessage('Nano Banana está transformando tu fotografía en una propuesta de jardín…');
     const brief=createDesignBrief(conditions);setDesign(brief);setGenerated(true);setTab('render');
+    const imageCreated=await generateAIImage();
+    if(!imageCreated){setSaveMessage('No se pudo generar la imagen. Revisá el mensaje de error e intentá nuevamente.');setSaveBusy(false);return;}
     if(!session?.user){
-      setSaveMessage('Gemini analizó tu fotografía correctamente. Estás en modo demo: el proyecto no se guardó.');
-      setSaveBusy(false);
-      return;
+      setSaveMessage('Imagen creada con Nano Banana. Estás en modo demo: registrate solo si querés guardar el proyecto.');
+      setSaveBusy(false);return;
     }
-    setSaveMessage('Análisis real de Gemini completado. Preparando los elementos conceptuales…');
+    setSaveMessage('Imagen generada. Guardando los datos del proyecto…');
     try{
-      let photoPath:string|null=null;const photo=photos.find(f=>f.type.startsWith('image/'));
+      const photo=photos.find(file=>file.type.startsWith('image/'));
       const {data:project,error:projectError}=await supabase!.from('projects').insert({user_id:session!.user.id,name:'Jardín '+new Date().toLocaleDateString('es-PY'),status:'designed',width_m:Number(width)||0,length_m:Number(length)||0,conditions,original_photo_path:null}).select('id').single();
       if(projectError)throw projectError;
-      if(photo&&project){const path=`${session!.user.id}/${project.id}/${Date.now()}-${photo.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;const upload=await supabase!.storage.from('garden-photos').upload(path,photo,{contentType:photo.type,upsert:false});if(upload.error)throw upload.error;photoPath=path;await supabase!.from('projects').update({original_photo_path:photoPath}).eq('id',project.id);}
+      if(photo&&project){
+        const path=`${session!.user.id}/${project.id}/${Date.now()}-${photo.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+        const upload=await supabase!.storage.from('garden-photos').upload(path,photo,{contentType:photo.type,upsert:false});
+        if(upload.error)throw upload.error;
+        await supabase!.from('projects').update({original_photo_path:path}).eq('id',project.id);
+      }
       const layout=createGardenLayout(conditions);const specs=createPlantingSpecs(conditions);const estimate=createBudgetEstimate(conditions);
-      const {error:designError}=await supabase!.from('designs').insert({project_id:project.id,user_id:session!.user.id,version:1,status:'completed',plan_data:{conditions,layout,planMarkup,gemini_analysis:analysis},plant_recommendations:specs,budget_estimate:estimate});
+      const {error:designError}=await supabase!.from('designs').insert({project_id:project.id,user_id:session!.user.id,version:1,status:'completed',plan_data:{conditions,layout,planMarkup,visual_model:'gemini-2.5-flash-image'},plant_recommendations:specs,budget_estimate:estimate});
       if(designError)throw designError;
-      await loadSavedProjects(session!.user.id);setSaveMessage('Análisis de Gemini completado y proyecto guardado. El plano, las plantas y el presupuesto siguen siendo estimaciones conceptuales calculadas por Garden AI.');
-    }catch(e){setSaveMessage('Gemini analizó la fotografía, pero no se pudo guardar el proyecto: '+(e instanceof Error?e.message:'error'));}
+      await loadSavedProjects(session!.user.id);setSaveMessage('Propuesta visual de Nano Banana generada y proyecto guardado. El plano, las plantas y el presupuesto son estimaciones conceptuales.');
+    }catch(e){setSaveMessage('La imagen se generó, pero no se pudo guardar el proyecto: '+(e instanceof Error?e.message:'error'));}
     finally{setSaveBusy(false);}
   }
   const planMarkup=useMemo(()=>{
@@ -120,11 +122,11 @@ export default function App(){
     if(!data?.analysis)throw new Error(data?.error||'Gemini no devolvió un análisis.');
     return String(data.analysis);
   }
-  async function generateAIImage(){
-    setAiLoading(true);setAiError('');
+  async function generateAIImage():Promise<boolean>{
+    setAiError('');setAiLoading(true);
     const source=photos.find(file=>file.type.startsWith('image/'));
-    if(!source){setAiError('Primero subí una fotografía del terreno.');setAiLoading(false);return;}
-    if(!supabase){setAiError('Supabase no está configurado en esta versión.');setAiLoading(false);return;}
+    if(!source){setAiError('Primero subí una fotografía del terreno.');setAiLoading(false);return false;}
+    if(!supabase){setAiError('Supabase no está configurado en esta versión.');setAiLoading(false);return false;}
     try{
       const imageBase64=await new Promise<string>((resolve,reject)=>{
         const reader=new FileReader();
@@ -136,10 +138,14 @@ export default function App(){
         action:'generate-image',imageBase64,mimeType:source.type,
         conditions:{sun,soil,drainage:drain,style,maintenance:care,goal,budget,width:Number(width)||0,length:Number(length)||0,notes:note}
       }});
-      if(error)throw new Error(data?.error||error.message||'No se pudo conectar con Gemini.');
-      if(typeof data?.image!=='string'||!data.image.startsWith('data:image/'))throw new Error(data?.error||'Gemini no devolvió una imagen válida.');
-      setAiImage(data.image);
-    }catch(error){setAiError(error instanceof Error?error.message:'Error al generar la imagen.');}
+      if(error){
+        let detail='';
+        try{const response=(error as any)?.context;const payload=response?.clone?await response.clone().json():null;detail=String(payload?.error||'');}catch{}
+        throw new Error(detail||data?.error||error.message||'No se pudo conectar con Nano Banana.');
+      }
+      if(typeof data?.image!=='string'||!data.image.startsWith('data:image/'))throw new Error(data?.error||'Nano Banana no devolvió una imagen válida.');
+      setAiImage(data.image);return true;
+    }catch(error){setAiError(error instanceof Error?error.message:'Error al generar la imagen con Nano Banana.');return false;}
     finally{setAiLoading(false);}
   }
   function downloadSVG(){
@@ -162,7 +168,7 @@ export default function App(){
       <div className="field"><label className="field-label">Objetivo del espacio</label><select value={goal} onChange={e=>setGoal(e.target.value)}><option>Embellecer el patio</option><option>Crear privacidad</option><option>Reducir calor</option><option>Espacio de descanso</option><option>Renovar completamente</option><option>Jardín para niños / mascotas</option></select></div>
       <div className="dimensions"><label className="field-label"><Ruler size={15}/> Dimensiones aproximadas (metros)</label><div className="field-row"><div className="field"><label className="small-label">Ancho</label><input type="number" min="1" value={width} onChange={e=>setWidth(e.target.value)}/></div><div className="field"><label className="small-label">Largo</label><input type="number" min="1" value={length} onChange={e=>setLength(e.target.value)}/></div></div><small className="area">Área estimada: <b>{area.toLocaleString('es-PY')} m²</b></small></div>
       <div className="field"><label className="field-label">Notas adicionales</label><textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Ej. conservar el árbol existente, evitar plantas con espinas, hay un perro..."/></div>
-      <button className="generate" onClick={generate} disabled={saveBusy}><Sparkles size={17}/> {saveBusy?(aiLoading?'Analizando con Gemini…':'Guardando propuesta…'):session?.user?'Analizar foto y crear propuesta':'Probar Gemini y crear propuesta'} <ChevronRight size={18}/></button>{saveMessage&&<p className="save-message">{saveMessage}</p>}{aiError&&<p className="ai-error" role="alert">No se pudo procesar la fotografía: {aiError}</p>}<p className="disclaimer"><CircleHelp size={14}/> Podés probar el análisis de fotografías y la visualización con Gemini sin registrarte. La cuenta solo es necesaria para guardar y recuperar proyectos.</p></section>
+      <button className="generate" onClick={generate} disabled={saveBusy}><Sparkles size={17}/> {saveBusy?(aiLoading?'Generando con Nano Banana…':'Guardando propuesta…'):session?.user?'Crear diseño con Nano Banana':'Crear diseño con Nano Banana'} <ChevronRight size={18}/></button>{saveMessage&&<p className="save-message">{saveMessage}</p>}{aiError&&<p className="ai-error" role="alert">No se pudo procesar la fotografía: {aiError}</p>}<p className="disclaimer"><CircleHelp size={14}/> Podés generar una propuesta visual con Nano Banana sin registrarte. La cuenta solo es necesaria para guardar y recuperar proyectos. La cuenta solo es necesaria para guardar y recuperar proyectos.</p></section>
       <section className="results"><div className="result-header"><div><span className="result-kicker">TU PROYECTO</span><h2>{generated?'Propuesta conceptual':'Tu jardín, por diseñar'}</h2></div><div className="status-pill"><span/> {generated?'Concepto creado':'En espera'}</div></div>
       {generated?<><div className="tabs">{([['plan','Plano cenital'],['sketch','Croquis'],['plants','Vegetación'],['budget','Presupuesto'],['render','Visualización']] as [Tab,string][]).map(([t,label])=><button key={t} className={tab===t?'tab active':'tab'} onClick={()=>setTab(t)}>{label}</button>)}</div>
       {tab==='plan'&&<div className="plan-card"><div className="plan-top"><b>Distribución esquemática</b><span>{width} × {length} m</span></div><div className="plan-svg dynamic-plan" dangerouslySetInnerHTML={{__html:planMarkup}} /><div className="plan-legend"><span><i className="legend-tree"/> Plantación</span><span><i className="legend-flower"/> Flor / acento</span><span><i className="legend-path"/> Camino</span></div><div className="budget-actions" style={{justifyContent:"center",gap:8,flexWrap:"wrap"}}><button className="export" onClick={downloadSVG}><Download size={15}/> Descargar plano SVG</button><button className="export" onClick={generateProposal}><FileText size={15}/> Generar propuesta PDF</button></div></div>}
