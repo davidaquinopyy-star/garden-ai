@@ -39,10 +39,13 @@ async function callGemini(url: string, payload: unknown) {
   throw lastError instanceof Error ? lastError : new Error("Gemini no respondió.");
 }
 
-function userFacingGeminiError(status: number, fallback: string) {
-  if (status === 429 || status === 503 || status === 504) {
-    return "Gemini está temporalmente saturado o no responde. Esperá un minuto y volvé a intentar.";
+function userFacingGeminiError(status: number, fallback: string, detail = "") {
+  const normalized = detail.toLowerCase();
+  if (status === 429 && (normalized.includes("free_tier") || normalized.includes("limit: 0") || normalized.includes("billing"))) {
+    return "Nano Banana está respondiendo, pero tu proyecto de Google AI Studio no tiene cuota gratuita habilitada para generar imágenes. Activá la facturación o un plan con cuota para Gemini API en el proyecto asociado a GEMINI_API_KEY. No hace falta cambiar la clave ni configurar nada en Cloudflare.";
   }
+  if (status === 429) return "Gemini alcanzó el límite de solicitudes de tu plan. Revisá las cuotas y la facturación del proyecto de Google AI Studio.";
+  if (status === 503 || status === 504) return "Gemini está temporalmente saturado o no responde. Esperá un minuto y volvé a intentar.";
   if (status >= 500) return "Gemini tuvo un problema temporal. Intentá nuevamente en unos minutos.";
   return fallback;
 }
@@ -95,7 +98,7 @@ Devolvé una única imagen final fotorrealista que mantenga reconocible el mismo
       );
       if (!response.ok) {
         console.error("Gemini image API error", response.status, JSON.stringify(result?.error ?? result));
-        const message = userFacingGeminiError(response.status, result?.error?.message || "Gemini no pudo generar la imagen.");
+        const message = userFacingGeminiError(response.status, result?.error?.message || "Gemini no pudo generar la imagen.", result?.error?.message || "");
         return json({ error: message }, response.status);
       }
       const parts = result?.candidates?.[0]?.content?.parts ?? [];
@@ -132,7 +135,7 @@ No afirmes que generaste una imagen. Sé específico con esta fotografía.`;
     );
     if (!response.ok) {
       console.error("Gemini analysis API error", response.status, JSON.stringify(result?.error ?? result));
-      const message = userFacingGeminiError(response.status, result?.error?.message || "Gemini no pudo analizar la fotografía.");
+      const message = userFacingGeminiError(response.status, result?.error?.message || "Gemini no pudo analizar la fotografía.", result?.error?.message || "");
       return json({ error: message }, response.status);
     }
 
