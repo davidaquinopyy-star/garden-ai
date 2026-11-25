@@ -12,6 +12,41 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function callGemini(url: string, payload: unknown) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(30000),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.ok || ![429, 500, 502, 503, 504].includes(response.status) || attempt === 2) {
+        return { response, result };
+      }
+      console.warn("Gemini temporal error; retry", response.status, attempt + 1);
+    } catch (error) {
+      lastError = error;
+      if (attempt === 2) throw error;
+      console.warn("Gemini connection timeout; retry", attempt + 1);
+    }
+    await wait(1000 * (attempt + 1));
+  }
+  throw lastError instanceof Error ? lastError : new Error("Gemini no respondió.");
+}
+
+function userFacingGeminiError(status: number, fallback: string) {
+  if (status === 429 || status === 503 || status === 504) {
+    return "Gemini está temporalmente saturado o no responde. Esperá un minuto y volvé a intentar.";
+  }
+  if (status >= 500) return "Gemini tuvo un problema temporal. Intentá nuevamente en unos minutos.";
+  return fallback;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Método no permitido." }, 405);
@@ -51,21 +86,16 @@ ${conditionsText}
 
 Devolvé una única imagen final fotorrealista que mantenga reconocible el mismo lugar de la fotografía.`;
 
-      const response = await fetch(
+      const { response, result } = await callGemini(
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + encodeURIComponent(apiKey),
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }, imagePart] }],
-            generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
-          }),
+          contents: [{ parts: [{ text: prompt }, imagePart] }],
+          generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
         },
       );
-      const result = await response.json();
       if (!response.ok) {
         console.error("Gemini image API error", response.status, JSON.stringify(result?.error ?? result));
-        const message = result?.error?.message || "Gemini no pudo generar la imagen.";
+        const message = userFacingGeminiError(response.status, result?.error?.message || "Gemini no pudo generar la imagen.");
         return json({ error: message }, response.status);
       }
       const parts = result?.candidates?.[0]?.content?.parts ?? [];
@@ -93,21 +123,16 @@ Respondé en español con un análisis práctico y estructurado que incluya:
 7. preguntas o medidas que faltan para un diseño preciso.
 No afirmes que generaste una imagen. Sé específico con esta fotografía.`;
 
-    const response = await fetch(
+    const { response, result } = await callGemini(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + encodeURIComponent(apiKey),
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }, imagePart] }],
-          generationConfig: { temperature: 0.4, maxOutputTokens: 1800 },
-        }),
+        contents: [{ parts: [{ text: prompt }, imagePart] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 1800 },
       },
     );
-    const result = await response.json();
     if (!response.ok) {
       console.error("Gemini analysis API error", response.status, JSON.stringify(result?.error ?? result));
-      const message = result?.error?.message || "Gemini no pudo analizar la fotografía.";
+      const message = userFacingGeminiError(response.status, result?.error?.message || "Gemini no pudo analizar la fotografía.");
       return json({ error: message }, response.status);
     }
 
